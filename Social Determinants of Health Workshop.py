@@ -80,7 +80,7 @@ display(dfIncome)
 
 # COMMAND ----------
 
-dfIncome.write.format("delta").mode("overwrite").option("path",storageBase + "/delta/bronze_income").saveAsTable("sdoh.bronze_income")
+dfIncome.write.format("delta").mode("overwrite").saveAsTable("sdoh.bronze_income")
 
 # COMMAND ----------
 
@@ -95,7 +95,7 @@ from pyspark.sql.functions import to_date, col
 dfVaccs = spark.read.csv(storageBase + "/COVID-19_Vaccinations_in_the_United_States_County2.csv", header=True, inferSchema=True)
 dfVaccs = dfVaccs.withColumn("Date",to_date(col("Date"),"MM/dd/yyyy"))
 display(dfVaccs)
-dfVaccs.write.format("delta").mode("overwrite").option("mergeSchema",True).option("path",storageBase + "/delta/bronze_vaccinations").saveAsTable("sdoh.bronze_vaccinations")
+dfVaccs.write.format("delta").mode("overwrite").option("mergeSchema",True).saveAsTable("sdoh.bronze_vaccinations")
 
 # COMMAND ----------
 
@@ -107,7 +107,7 @@ dfVaccs.write.format("delta").mode("overwrite").option("mergeSchema",True).optio
 
 dfPopDen = spark.read.csv(storageBase + '/Population_Density_By_County.csv', header=True, inferSchema=True)
 display(dfPopDen)
-dfPopDen.write.format("delta").mode("overwrite").option("path", storageBase + "/delta/population_density").saveAsTable("sdoh.population_density")
+dfPopDen.write.format("delta").mode("overwrite").saveAsTable("sdoh.population_density")
 
 # COMMAND ----------
 
@@ -117,7 +117,7 @@ dfPopDen.write.format("delta").mode("overwrite").option("path", storageBase + "/
 # COMMAND ----------
 
 dfPoverty = spark.read.csv(storageBase + '/us_poverty.csv', header=True, inferSchema=True)
-dfPoverty.selectExpr("`County ID` County_ID","`State / County Name` County_Name","`All Ages in Poverty Count` All_Ages_in_Poverty_Count","`All Ages in Poverty Percent` All_Ages_in_Poverty_Percent").write.format("delta").mode("overwrite").option("path", storageBase + "/delta/bronze_poverty").saveAsTable("sdoh.bronze_poverty")
+dfPoverty.selectExpr("`County ID` County_ID","`State / County Name` County_Name","`All Ages in Poverty Count` All_Ages_in_Poverty_Count","`All Ages in Poverty Percent` All_Ages_in_Poverty_Percent").write.format("delta").mode("overwrite").saveAsTable("sdoh.bronze_poverty")
 
 # COMMAND ----------
 
@@ -128,7 +128,7 @@ dfPoverty.selectExpr("`County ID` County_ID","`State / County Name` County_Name"
 
 dfRace = spark.read.csv(storageBase + '/nhgis0001_ds176_20105_county.csv', header=True, inferSchema=True)
 display(dfRace)
-dfRace.write.format("delta").mode("overwrite").option("path",storageBase + "/delta/bronze_race").saveAsTable("sdoh.bronze_race")
+dfRace.write.format("delta").mode("overwrite").saveAsTable("sdoh.bronze_race")
 
 # COMMAND ----------
 
@@ -155,13 +155,11 @@ display(dfFips)
 
 # COMMAND ----------
 
-spark.sql("""
-create table sdoh.gold_fips
-using delta
-location '{storageBase}/sdoh/delta/gold_fips'
-select trim(if(length(FIPS) < 5, concat("0",FIPS), FIPS)) FIPS, f.Name, f.State, s.State_Name
-from fips f join states s on (f.State = s.USPS_Abbreviation)
-""")
+# MAGIC %sql
+# MAGIC create table sdoh.gold_fips
+# MAGIC using delta
+# MAGIC select trim(if(length(FIPS) < 5, concat("0",FIPS), FIPS)) FIPS, f.Name, f.State, s.State_Name
+# MAGIC from fips f join states s on (f.State = s.USPS_Abbreviation)
 
 # COMMAND ----------
 
@@ -173,7 +171,7 @@ from fips f join states s on (f.State = s.USPS_Abbreviation)
 
 dfEdu = spark.read.csv(storageBase + "/Education.csv", header=True,inferSchema=True)
 display(dfEdu)
-dfEdu.selectExpr("`FIPS Code` FIPS","`Less than a high school diploma, 2015-19` NoHSDiploma","`High school diploma only, 2015-19` 25PlusHS", "`Some college or associate's degree, 2015-19` 25PlusAssociate","`Bachelor's degree or higher, 2015-19` 25PlusBachelor").write.format("delta").mode("overwrite").option("path",storageBase + "/delta/bronze_education").saveAsTable("sdoh.bronze_education")
+dfEdu.selectExpr("`FIPS Code` FIPS","`Less than a high school diploma, 2015-19` NoHSDiploma","`High school diploma only, 2015-19` 25PlusHS", "`Some college or associate's degree, 2015-19` 25PlusAssociate","`Bachelor's degree or higher, 2015-19` 25PlusBachelor").write.format("delta").mode("overwrite").saveAsTable("sdoh.bronze_education")
 
 # COMMAND ----------
 
@@ -188,14 +186,12 @@ display(dfPlaces)
 
 # COMMAND ----------
 
-spark.sql("""
-create table sdoh.bronze_health_stats
-using delta
-location '{storageBase}/sdoh/delta/bronze_health_stats'
-as
-select LocationID, StateAbbr, LocationName,  replace(replace(replace(replace(measure,' ' ,'_'),">=",""),"(",""),")","") measure, data_value
-from places
-""")
+# MAGIC %sql
+# MAGIC create table sdoh.bronze_health_stats
+# MAGIC using delta
+# MAGIC as
+# MAGIC select LocationID, StateAbbr, LocationName,  replace(replace(replace(replace(measure,' ' ,'_'),">=",""),"(",""),")","") measure, data_value
+# MAGIC from places
 
 # COMMAND ----------
 
@@ -223,22 +219,20 @@ from places
 
 # COMMAND ----------
 
-spark.sql("""
-create table sdoh.silver_health_stats
-using delta
-location '{storageBase}/sdoh/delta/silver_health_stats'
-select * from sdoh.bronze_health_stats
-pivot(
-   MAX(data_value) AS data_v
-   FOR measure IN ('Current_smoking_among_adults_aged_18_years' AS SmokingPct, 
-   'Obesity_among_adults_aged_18_years' AS ObesityPct,
-   'Coronary_heart_disease_among_adults_aged_18_years' AS HeartDiseasePct,
-   'Cancer_excluding_skin_cancer_among_adults_aged_18_years' AS CancerPct,
-   'Current_lack_of_health_insurance_among_adults_aged_18-64_years' AS NoHealthInsPct,
-   'Current_asthma_among_adults_aged_18_years' AS AsthmaPct)
-)
-order by LocationID
-""")
+# MAGIC %sql
+# MAGIC create table sdoh.silver_health_stats
+# MAGIC using delta
+# MAGIC select * from sdoh.bronze_health_stats
+# MAGIC pivot(
+# MAGIC    MAX(data_value) AS data_v
+# MAGIC    FOR measure IN ('Current_smoking_among_adults_aged_18_years' AS SmokingPct, 
+# MAGIC    'Obesity_among_adults_aged_18_years' AS ObesityPct,
+# MAGIC    'Coronary_heart_disease_among_adults_aged_18_years' AS HeartDiseasePct,
+# MAGIC    'Cancer_excluding_skin_cancer_among_adults_aged_18_years' AS CancerPct,
+# MAGIC    'Current_lack_of_health_insurance_among_adults_aged_18-64_years' AS NoHealthInsPct,
+# MAGIC    'Current_asthma_among_adults_aged_18_years' AS AsthmaPct)
+# MAGIC )
+# MAGIC order by LocationID
 
 # COMMAND ----------
 
@@ -249,16 +243,14 @@ order by LocationID
 
 # COMMAND ----------
 
-spark.sql("""
-create table sdoh.silver_race 
-using delta
-location '{storageBase}/sdoh/delta/silver_race'
-as
-select fips, r.* from (
-select State, trim(replace(replace(County,'County',''),'Parish','')) CountyName, JMBE001 County_Population, JMBE002 White_population, JMBE003 African_American, JMBE005 Asian, JMBE006 Pacific_Islander, JMBE007 Other, JMBE008 Two_More
-from sdoh.bronze_race 
-where year = '2006-2010') r join sdoh.gold_fips f on(r.State = f.state_name) and (r.CountyName = f.Name)
-""")
+# MAGIC %sql
+# MAGIC create table sdoh.silver_race 
+# MAGIC using delta
+# MAGIC as
+# MAGIC select fips, r.* from (
+# MAGIC select State, trim(replace(replace(County,'County',''),'Parish','')) CountyName, JMBE001 County_Population, JMBE002 White_population, JMBE003 African_American, JMBE005 Asian, JMBE006 Pacific_Islander, JMBE007 Other, JMBE008 Two_More
+# MAGIC from sdoh.bronze_race 
+# MAGIC where year = '2006-2010') r join sdoh.gold_fips f on(r.State = f.state_name) and (r.CountyName = f.Name)
 
 # COMMAND ----------
 
@@ -268,14 +260,12 @@ where year = '2006-2010') r join sdoh.gold_fips f on(r.State = f.state_name) and
 
 # COMMAND ----------
 
-spark.sql("""
-create table sdoh.silver_poverty
-using delta
-location '{storageBase}/sdoh/delta/silver_poverty'
-as
-select trim(if(length(County_ID) < 5, concat("0",County_ID), County_ID)) FIPS, Year, cast(replace(All_Ages_in_Poverty_Count,",","") as int) All_Ages_in_Poverty_Count, cast(All_Ages_in_Poverty_Percent as double) All_Ages_in_Poverty_Percent
-From sdoh.bronze_poverty
-"""
+# MAGIC %sql
+# MAGIC create table sdoh.silver_poverty
+# MAGIC using delta
+# MAGIC as
+# MAGIC select trim(if(length(County_ID) < 5, concat("0",County_ID), County_ID)) FIPS, cast(replace(All_Ages_in_Poverty_Count,",","") as int) All_Ages_in_Poverty_Count, cast(All_Ages_in_Poverty_Percent as double) All_Ages_in_Poverty_Percent
+# MAGIC from sdoh.bronze_poverty
 
 # COMMAND ----------
 
