@@ -20,10 +20,7 @@
 
 # COMMAND ----------
 
-#Create a widget to store the for saving the data
-dbutils.widgets.text("location","Source Location")
-#storageBase = 'abfss://data@scottblackadls.dfs.core.windows.net/sdoh'
-storageBase = getArgument("location")
+storageBase = "wasb://data@sdohworkshop.blob.core.windows.net/sdoh"
 
 # COMMAND ----------
 
