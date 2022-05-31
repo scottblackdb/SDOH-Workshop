@@ -616,29 +616,7 @@ print(f"mae {mae} and rsme: {rmse}")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ####For Texas Population Density Is Still the Most Influential but Smoking Percentage is a Close Second
-
-# COMMAND ----------
-
- display(spark.createDataFrame(sorted(list(zip(mean_abs_shap, X.columns)), reverse=True)[:6], ["Mean |SHAP|", "Column"]))
-
-# COMMAND ----------
-
-df = pd.DataFrame(tx_shap_values, columns=X.columns)
-df['fips'] =spark.sql("select fips from vaccine_data_pct where Recip_State = 'TX' order by fips").toPandas()
-
-display(df)
-dfTXShaps = spark.createDataFrame(df)
-
-# COMMAND ----------
-
-dfTXShaps.write.format("delta").mode("append").save(storageBase + "/delta/state_model_county_vaccine_shap")
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC 
-# MAGIC select * from sdoh.state_model_county_vaccine_shap order by fips
+# MAGIC ####In this worksop we quickly and easily brought in data from a varitey of datasources. We were able to cleanse and transform the data to provide an analysis of factors that influence vaccinations rates of the U.S. and compared those of California.  Finally we saved all of the results in a open format that can also be leveraged by BI and other reportings tools. This is the power of a Databricks Lakehouse platform: ETL, BI & ML in one platform.
 
 # COMMAND ----------
 
