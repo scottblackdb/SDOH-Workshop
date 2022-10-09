@@ -21,6 +21,7 @@
 # COMMAND ----------
 
 storageBase = "wasb://data@sdohworkshop.blob.core.windows.net/sdoh"
+storageBase = "abfss://data@sdohworkshop.dfs.core.windows.net/sdoh"
 
 # COMMAND ----------
 
@@ -101,13 +102,26 @@ dfVaccs.write.format("delta").mode("overwrite").option("mergeSchema",True).saveA
 
 # MAGIC %md
 # MAGIC ####Create Bronze County Population Density
+# MAGIC From https://covid19.census.gov/datasets/21843f238cbb46b08615fc53e19e0daf_1/explore?location=17.667580%2C0.315550%2C3.37&showTable=true
+
+# COMMAND ----------
+
+dfPopDen = spark.read.csv(storageBase + '/Average_Household_Size_and_Population_Density_County.csv', header=True, inferSchema=True)
+display(dfPopDen)
+dfPopDen.createOrReplaceTempView("pop_density")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ####Create Bronze County Population Density
 # MAGIC #####No cleansing needed and can be saved as is
 
 # COMMAND ----------
 
 dfPopDen = spark.read.csv(storageBase + '/Population_Density_By_County.csv', header=True, inferSchema=True)
 display(dfPopDen)
-dfPopDen.write.format("delta").mode("overwrite").saveAsTable("sdoh.population_density")
+
+#dfPopDen.write.format("delta").mode("overwrite").saveAsTable("sdoh.population_density")
 
 # COMMAND ----------
 
@@ -296,14 +310,14 @@ display(dfPlaces)
 # MAGIC %sql
 # MAGIC use sdoh;
 # MAGIC 
-# MAGIC select v.fips, Recip_County, Recip_State, ifnull(Series_Complete_12PlusPop_Pct, Series_Complete_Pop_Pct) Vaccination_Pert, pd.Density_per_square_mile_of_land_area population_density, r.County_Population, round((r.County_Population - r.White_population) / r.County_Population,3) * 100 Minoirity_Population_Pct, 
-# MAGIC i.`2019` income, p.All_Ages_in_Poverty_Percent, round(e.25PlusHS / r.County_Population,2) * 100 25PlusHSPct, round(e.25PlusAssociate / r.County_Population,2) * 100 25PlusAssociatePct, h.SmokingPct, h.ObesityPct, h.HeartDiseasePct, h.CancerPct, h.NoHealthInsPct,h.AsthmaPct
+# MAGIC select v.fips, Recip_County, Recip_State, ifnull(Series_Complete_12PlusPop_Pct, Series_Complete_Pop_Pct) Vaccination_Pert, pd.B01001_calc_PopDensity population_density, r.County_Population, round((r.County_Population - r.White_population) / r.County_Population,3) * 100 Minoirity_Population_Pct, 
+# MAGIC i.`2019` income, p.All_Ages_in_Poverty_Percent, round(e.25PlusHS / r.County_Population,2) * 100 25PlusHSPct, round(e.25PlusAssociate / r.County_Population,2) * 100 25PlusAssociatePct, h.SmokingPct, h.ObesityPct, h.HeartDiseasePct, h.CancerPct, h.NoHealthInsPct,h.AsthmaPct, B25010_001E
 # MAGIC from silver_race r join sdoh.silver_vaccinations v on(r.fips = v.fips)
 # MAGIC join bronze_income i on(i.geofips = v.fips)
 # MAGIC join silver_poverty p on (p.fips = v.fips)
 # MAGIC join silver_education e on (e.fips = v.fips)
 # MAGIC join silver_health_stats h on(h.locationid = v.fips)
-# MAGIC join population_density pd on (pd.GCT_STUBtarget_geo_id2 = v.fips)
+# MAGIC join pop_density pd on (pd.GEOID = v.fips)
 
 # COMMAND ----------
 
@@ -318,14 +332,14 @@ display(dfPlaces)
 # MAGIC 
 # MAGIC create or replace temp view vaccine_data_pct
 # MAGIC as
-# MAGIC select v.fips, Recip_County, Recip_State, ifnull(Series_Complete_12PlusPop_Pct, Series_Complete_Pop_Pct) Series_Complete_12PlusPop_Pct, pd.Density_per_square_mile_of_land_area population_density, r.County_Population, round((r.County_Population - r.White_population) / r.County_Population,3) * 100 Minoirity_Population_Pct, 
-# MAGIC i.`2019` income, p.All_Ages_in_Poverty_Percent, round(e.25PlusHS / r.County_Population,2) * 100 25PlusHSPct, round(e.25PlusAssociate / r.County_Population,2) * 100 25PlusAssociatePct, h.SmokingPct, h.ObesityPct, h.HeartDiseasePct, h.CancerPct, h.NoHealthInsPct,h.AsthmaPct
+# MAGIC select v.fips, Recip_County, Recip_State, ifnull(Series_Complete_12PlusPop_Pct, Series_Complete_Pop_Pct) Series_Complete_12PlusPop_Pct, pd.B01001_calc_PopDensity population_density, r.County_Population, round((r.County_Population - r.White_population) / r.County_Population,3) * 100 Minoirity_Population_Pct, 
+# MAGIC i.`2019` income, p.All_Ages_in_Poverty_Percent, round(e.25PlusHS / r.County_Population,2) * 100 25PlusHSPct, round(e.25PlusAssociate / r.County_Population,2) * 100 25PlusAssociatePct, h.SmokingPct, h.ObesityPct, h.HeartDiseasePct, h.CancerPct, h.NoHealthInsPct,h.AsthmaPct,  B25010_001E
 # MAGIC from silver_race r join sdoh.silver_vaccinations v on(r.fips = v.fips)
 # MAGIC join bronze_income i on(i.geofips = v.fips)
 # MAGIC join silver_poverty p on (p.fips = v.fips)
 # MAGIC join silver_education e on (e.fips = v.fips)
 # MAGIC join silver_health_stats h on(h.locationid = v.fips)
-# MAGIC join population_density pd on (pd.GCT_STUBtarget_geo_id2 = v.fips)
+# MAGIC join pop_density pd on (pd.GEOID = v.fips)
 
 # COMMAND ----------
 
@@ -418,14 +432,15 @@ dfShaps.createOrReplaceTempView("shap")
 
 # MAGIC %sql
 # MAGIC 
-# MAGIC select fips, stack(12,'Minority_Population_Pct',Minoirity_Population_Pct,'income', income, '25PlusHSPct', 25PlusHSPct,
+# MAGIC select fips, stack(13,'Minority_Population_Pct',Minoirity_Population_Pct,'income', income, '25PlusHSPct', 25PlusHSPct,
 # MAGIC 'All_Ages_in_Poverty_Percent',All_Ages_in_Poverty_Percent,'population_density', population_density, '25PlusAssociatePct', 25PlusAssociatePct, 
 # MAGIC 'SmokingPct',SmokingPct, 
 # MAGIC 'ObesityPct', ObesityPct, 
 # MAGIC 'HeartDiseasePct', HeartDiseasePct, 
 # MAGIC 'CancerPct', CancerPct, 
 # MAGIC 'NoHealthInsPct', NoHealthInsPct,
-# MAGIC 'AsthmaPct', AsthmaPct
+# MAGIC 'AsthmaPct', AsthmaPct,
+# MAGIC 'B25010_001E', B25010_001E
 # MAGIC )  
 # MAGIC as (factor, value)
 # MAGIC from shap
@@ -442,6 +457,10 @@ dfShaps.createOrReplaceTempView("shap")
 
 # COMMAND ----------
 
+spark.conf.set("fs.azure.account.key","konAi2KC83VSXKwUT9OCC4Dt/FEfsRkTlRkyweAunZ0UM8S3kxKNUMdPNzQLVZNKeH/Z3WHpLJe7+ASthBztjg==")
+
+# COMMAND ----------
+
 spark.sql(f"""
 create table sdoh.usa_model_county_vaccine_shap
 using delta
@@ -449,14 +468,15 @@ location '{storageBase}/sdoh/delta/usa_model_county_vaccine_shap'
 as
 select *, abs(value) abs_value
 from (
-select fips, stack(12,'Minority_Population_Pct',Minoirity_Population_Pct,'income', income, '25PlusHSPct', 25PlusHSPct,
+select fips, stack(13,'Minority_Population_Pct',Minoirity_Population_Pct,'income', income, '25PlusHSPct', 25PlusHSPct,
 'All_Ages_in_Poverty_Percent',All_Ages_in_Poverty_Percent,'population_density', population_density, '25PlusAssociatePct', 25PlusAssociatePct, 
 'SmokingPct',SmokingPct, 
 'ObesityPct', ObesityPct, 
 'HeartDiseasePct', HeartDiseasePct, 
 'CancerPct', CancerPct, 
 'NoHealthInsPct', NoHealthInsPct,
-'AsthmaPct', AsthmaPct
+'AsthmaPct', AsthmaPct,
+'B25010_001E', B25010_001E
 )  
 as (factor, value)
 from shap) t
