@@ -68,12 +68,6 @@ spark.conf.set("fs.azure.account.key","konAi2KC83VSXKwUT9OCC4Dt/FEfsRkTlRkyweAun
 
 # MAGIC %sql
 # MAGIC 
-# MAGIC select * from sdoh.gold_fips
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC 
 # MAGIC create or replace temp view state_agg_det_values as
 # MAGIC select f.fips, state, factor, sum(abs_value) det_total 
 # MAGIC from sdoh.gold_fips f join sdoh.usa_model_county_vaccine_shap u on (f.fips = u.fips)
@@ -225,7 +219,7 @@ state_data_indexed = state_data.set_index('State')
 # and assigning a value from our dataframe
 for s in cp.geojson.data['features']:
     s['properties']['unemployment'] = state_data_indexed.loc[s['id'], 'Unemployment']
-
+        
 # and finally adding a tooltip/hover to the choropleth's geojson
 folium.GeoJsonTooltip(['name', 'unemployment']).add_to(cp.geojson)
 
@@ -270,64 +264,17 @@ for s in cp.geojson.data['features']:
   if s['id'] != 'AK':
     s['properties']['factor'] = state_data_indexed.loc[s['id'], 'factor']
 
+    
+for key in cp._children:
+  if key.startswith('color_map'):
+    del(cp._children[key])
+    
 # and finally adding a tooltip/hover to the choropleth's geojson
 folium.GeoJsonTooltip(['name','factor']).add_to(cp.geojson)
 
 folium.LayerControl().add_to(m)
 
 m
-
-# COMMAND ----------
-
-df
-
-# COMMAND ----------
-
-import os
-import json
-import random
-import requests
-
-from ipyleaflet import Map, GeoJSON
-
-if not os.path.exists('europe_110.geo.json'):
-    url = 'https://github.com/jupyter-widgets/ipyleaflet/raw/master/examples/europe_110.geo.json'
-    r = requests.get(url)
-    with open('europe_110.geo.json', 'w') as f:
-        f.write(r.content.decode("utf-8"))
-
-with open('europe_110.geo.json', 'r') as f:
-    data = json.load(f)
-
-def random_color(feature):
-    return {
-        'color': 'black',
-        'fillColor': random.choice(['red', 'yellow', 'green', 'orange']),
-    }
-
-m = Map(center=(50.6252978589571, 0.34580993652344), zoom=3)
-
-geo_json = GeoJSON(
-    data=data,
-    style={
-        'opacity': 1, 'dashArray': '9', 'fillOpacity': 0.1, 'weight': 1
-    },
-    hover_style={
-        'color': 'white', 'dashArray': '0', 'fillOpacity': 0.5
-    },
-    style_callback=random_color
-)
-m.add_layer(geo_json)
-
-m
-
-# COMMAND ----------
-
-state_data
-
-# COMMAND ----------
-
-df
 
 # COMMAND ----------
 
